@@ -416,18 +416,25 @@ test('basic', function (t) {
     });
 });
 
-test('interop chrome chrome', function (t) {
-  interop(t, 'chrome', 'chrome');
+var browser = process.env.BROWSER;
+var other;
+switch(browser) {
+case 'chrome':
+    other = 'firefox';
+    break;
+case 'firefox':
+    other = 'chrome';
+    break;
+}
+test('interop ' + browser + ' ' + browser, function (t) {
+  interop(t, browser, browser);
 });
 
-test('interop firefox firefox', function (t) {
-  interop(t, 'firefox', 'firefox');
-});
-
-test('interop chrome firefox', function (t) {
-  interop(t, 'chrome', 'firefox');
+test('interop ' + browser + ' ' + other, function (t) {
+  interop(t, browser, other);
 });
 
 test('interop firefox chrome', function (t) {
-  interop(t, 'firefox', 'firefox');
+test('interop ' + other + ' ' + browser, function (t) {
+  interop(t, other, browser);
 });
