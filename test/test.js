@@ -185,7 +185,7 @@ function mangle(sdp) {
         lines.forEach(function(line) {
             // only take the first ssrc because fid and simulcast
             // TODO: write test with simulcast.
-            if (line.indexOf('a=ssrc:') === 0 && line.indexOf(' msid:') !== -1) {
+            if (!chromelines.ssrcmsid && line.indexOf('a=ssrc:') === 0 && line.indexOf(' msid:') !== -1) {
                 chromelines.ssrcmsid = line;
             }
             if (line.indexOf('a=msid:') === 0) {
