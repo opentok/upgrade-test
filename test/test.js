@@ -318,7 +318,6 @@ function interop(t, browserA, browserB) {
     t.ok(height > 0, 'height > 0');
     t.ok(luma > 0, 'accumulated luma is > 0');
   })
-  /*
   .then(function() {
     return driverA.close()
     .then(function() {
@@ -331,7 +330,6 @@ function interop(t, browserA, browserB) {
       return driverB.quit()
     });
   })
-  */
   .then(function() {
     t.end();
   });
@@ -364,5 +362,5 @@ test('basic', function (t) {
 });
 
 test('interop chrome chrome', function (t) {
-  interop(t, 'firefox', 'firefox');
+  interop(t, 'chrome', 'firefox');
 });
