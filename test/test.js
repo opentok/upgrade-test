@@ -426,6 +426,7 @@ case 'firefox':
     other = 'chrome';
     break;
 }
+
 test('interop ' + browser + ' ' + browser, function (t) {
   interop(t, browser, browser);
 });
@@ -434,7 +435,6 @@ test('interop ' + browser + ' ' + other, function (t) {
   interop(t, browser, other);
 });
 
-test('interop firefox chrome', function (t) {
 test('interop ' + other + ' ' + browser, function (t) {
   interop(t, other, browser);
 });
