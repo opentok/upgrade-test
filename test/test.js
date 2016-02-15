@@ -46,8 +46,8 @@ function buildDriver(browser) {
       .addArguments('use-fake-device-for-media-stream')
       .addArguments('use-fake-ui-for-media-stream')
       .addArguments('disable-translate')
-      .addArguments('no-process-singleton-dialog')
-      .addArguments('mute-audio');
+      .addArguments('no-process-singleton-dialog');
+      //.addArguments('mute-audio') // harmful for this test
 
   var driver= new webdriver.Builder()
       .forBrowser(browser)
@@ -170,6 +170,57 @@ function getVideo() {
     callback([remoteVideo.videoWidth, remoteVideo.videoHeight, accumulatedLuma]);
 }
 
+function mangle(sdp) {
+    var mediaSections = sdp.split('\r\nm=');
+    sdp = mediaSections.shift().trim();
+    mediaSections = mediaSections.map(function(mediaSection) {
+        mediaSection = 'm=' + mediaSection.trim() + '\r\n';
+        var lines = mediaSection.split('\r\n');
+
+        // translate chrome msid to firefox
+        // a=ssrc:12345 msid:stream track
+        // -> a=msid:stream track
+        // but not if a=msid is already there
+        var chromelines = {};
+        lines.forEach(function(line) {
+            // only take the first ssrc because fid and simulcast
+            // TODO: write test with simulcast.
+            if (line.indexOf('a=ssrc:') === 0 && line.indexOf(' msid:') !== -1) {
+                chromelines.ssrcmsid = line;
+            }
+            if (line.indexOf('a=msid:') === 0) {
+                chromelines.msid = line;
+            }
+        });
+        if (chromelines.ssrcmsid && !chromelines.msid) {
+            var parts = chromelines.ssrcmsid.split(' ');
+            parts.shift();
+            mediaSection += 'a=' + parts.join(' ') + '\r\n';
+        }
+
+        // translate firefox msid to chrome msid
+        // a=ssrc:12345 cname:something
+        // a=msid:stream track
+        // -> a=ssrc:12345 msid:stream track
+        var fflines = {}
+        lines.forEach(function(line) {
+            if (line.indexOf('a=msid:') === 0) {
+                fflines.msid = line;
+            }
+            if (line.indexOf('a=ssrc:') === 0 && line.indexOf(' cname:') !== -1) {
+                fflines.cname = line;
+            }
+        });
+        if (fflines.msid && fflines.cname) {
+            mediaSection += fflines.cname.split(' ', 1)[0] + ' ' + fflines.msid.substr(2) + '\r\n';
+        }
+        return mediaSection.trim();
+    });
+    sdp += '\r\n' + mediaSections.join('\r\n');
+    //console.log(sdp);
+    return sdp.trim() + '\r\n';
+}
+
 function interop(t, browserA, browserB) {
   var driverA = buildDriver(browserA);
   var driverB = buildDriver(browserB);
@@ -205,6 +256,7 @@ function interop(t, browserA, browserB) {
     })
     .then(function(offer) {
       t.pass('got offer');
+      offer = mangle(offer);
       return driverB.executeAsyncScript(function(offer) {
         var callback = arguments[arguments.length - 1];
         
@@ -234,6 +286,7 @@ function interop(t, browserA, browserB) {
     })
     .then(function(answer) {
       t.pass('got answer');
+      answer = mangle(answer);
       return driverA.executeAsyncScript(function(answer) {
         var callback = arguments[arguments.length - 1];
         
@@ -277,6 +330,7 @@ function interop(t, browserA, browserB) {
   })
   .then(function(offer) {
     t.pass('reoffer');
+    offer = mangle(offer);
     return driverB.executeAsyncScript(function(offer) {
       var callback = arguments[arguments.length - 1];
       
@@ -294,6 +348,7 @@ function interop(t, browserA, browserB) {
   })
   .then(function(answer) {
     t.pass('reanswer');
+    answer = mangle(answer);
     return driverA.executeAsyncScript(function(answer) {
       var callback = arguments[arguments.length - 1];
       
@@ -362,5 +417,17 @@ test('basic', function (t) {
 });
 
 test('interop chrome chrome', function (t) {
+  interop(t, 'chrome', 'chrome');
+});
+
+test('interop firefox firefox', function (t) {
+  interop(t, 'firefox', 'firefox');
+});
+
+test('interop chrome firefox', function (t) {
   interop(t, 'chrome', 'firefox');
+});
+
+test('interop firefox chrome', function (t) {
+  interop(t, 'firefox', 'firefox');
 });
