@@ -1,164 +1,147 @@
-/*
- *  Copyright (c) 2015 The WebRTC project authors. All Rights Reserved.
- *
- *  Use of this source code is governed by a BSD-style license
- *  that can be found in the LICENSE file in the root of the source
- *  tree.
- */
- /* jshint node: true */
- /* global Promise */
-
 'use strict';
 
-// This is a basic test file for use with testling and webdriver.
-// The test script language comes from tape.
-
-var fs = require('fs');
 var test = require('tape');
 var webdriver = require('selenium-webdriver');
 var chrome = require('selenium-webdriver/chrome');
 var firefox = require('selenium-webdriver/firefox');
+
 var seleniumHelpers = require('webrtc-utilities').seleniumLib;
 
-function buildDriver(browser) {
+function buildDriver(browser, version, platform) {
   // Firefox options.
-  // http://selenium.googlecode.com/git/docs/api/javascript/module_selenium-webdriver_firefox.html
   var profile = new firefox.Profile();
   profile.setPreference('media.navigator.streams.fake', true);
-  // This enables device labels for enumerateDevices when using fake devices.
   profile.setPreference('media.navigator.permission.disabled', true);
-  // Currently the FF webdriver extension is not signed and FF 41 no longer
-  // allows unsigned extensions by default.
-  // TODO: Remove this once FF no longer allow turning this off and the
-  // selenium team starts making a signed FF webdriver extension.
-  // https://github.com/SeleniumHQ/selenium/issues/901.
   profile.setPreference('xpinstall.signatures.required', false);
 
   var firefoxOptions = new firefox.Options()
-      .setProfile(profile)
-      //.setBinary('node_modules/.bin/start-firefox');
+      .setProfile(profile);
 
   // Chrome options.
-  // http://selenium.googlecode.com/git/docs/api/javascript/module_selenium-webdriver_chrome_class_Options.html#addArguments
   var chromeOptions = new chrome.Options()
-      //.setChromeBinaryPath('node_modules/.bin/start-chrome')
       .addArguments('allow-file-access-from-files')
       .addArguments('use-fake-device-for-media-stream')
       .addArguments('use-fake-ui-for-media-stream')
       .addArguments('disable-translate')
-      .addArguments('no-process-singleton-dialog');
-      //.addArguments('mute-audio') // harmful for this test
+      .addArguments('no-process-singleton-dialog')
+      .addArguments('mute-audio'); // might be harmful for this test
 
-  /*
-  var driver= new webdriver.Builder()
-      .forBrowser(browser)
+  var driver;
+  if (process.env.SAUCE_USERNAME) {
+    // using travis' sauceconnect plugin.
+    var username = process.env.SAUCE_USERNAME;
+    var key = process.env.SAUCE_ACCESS_KEY;
+    var driver = new webdriver.Builder()
+      //.usingServer('http://' + username + ':' + key + '@localhost:4445/wd/hub')
+      .usingServer('http://' + username + ':' + key + '@ondemand.saucelabs.com/wd/hub')
+      //.usingServer('http://localhost:4444/wd/hub')
+      .withCapabilities({
+        'tunnel-identifier': process.env.TRAVIS_JOB_NUMBER
+      })
       .setFirefoxOptions(firefoxOptions)
       .setChromeOptions(chromeOptions)
+      .forBrowser(browser, version, platform)
       .build();
-  */
-
-  var username = process.env.SAUCE_USERNAME;
-  var key = process.env.SAUCE_ACCESS_KEY;
-  var driver = new webdriver.Builder()
-    .usingServer('http://' + username + ':' + key + '@ondemand.saucelabs.com/wd/hub',
-    .withCapabilities({
-      browserName: browser,
-      firefoxOptions: firefoxOptions,
-      chromeOptions: chromeOptions
-    }).build();
+  } else {
+    driver= new webdriver.Builder()
+        .forBrowser(browser, version, platform)
+        .setFirefoxOptions(firefoxOptions)
+        .setChromeOptions(chromeOptions)
+        .build();
+  }
 
   // Set global executeAsyncScript() timeout (default is 0) to allow async
   // callbacks to be caught in tests.
-  driver.manage().timeouts().setScriptTimeout(5000);
+  // TODO: GUM takes an awful long time on saucelabs, ~25 seconds
+  driver.manage().timeouts().setScriptTimeout(600 * 1000);
 
   return driver;
 }
 
 function basicTest() {
-    var callback = arguments[arguments.length - 1];
-    
-    var remoteVideo = document.getElementById('remoteVideo');
+  var callback = arguments[arguments.length - 1];
+  
+  var remoteVideo = document.getElementById('remoteVideo');
 
-    var pc1 = new RTCPeerConnection(null);
-    var pc2 = new RTCPeerConnection(null);
+  var pc1 = new RTCPeerConnection(null);
+  var pc2 = new RTCPeerConnection(null);
 
-    pc2.ontrack = function(e) {
-      remoteVideo.srcObject = e.streams[0];
-    };
+  pc2.ontrack = function(e) {
+    remoteVideo.srcObject = e.streams[0];
+  };
 
-    var addCandidate = function(pc, event) {
-      if (event.candidate) {
-        var cand = new RTCIceCandidate(event.candidate);
-        pc.addIceCandidate(cand)
-        .catch(function(err) {
-          console.log(err);
-        });
-      }
-    };
-    pc1.onicecandidate = function(event) {
-      addCandidate(pc2, event);
-    };
-    pc2.onicecandidate = function(event) {
-      addCandidate(pc1, event);
-    };
-
-    var constraints = {audio: true};
-    navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(stream) {
-      var origStream = stream;
-      pc1.addStream(stream); // TODO: use addTrack?
-      pc1.createOffer().then(function(offer) {
-        return pc1.setLocalDescription(offer);
-      }).then(function() {
-        return pc2.setRemoteDescription(pc1.localDescription);
-      }).then(function() {
-        return pc2.createAnswer();
-      }).then(function(answer) {
-        return pc2.setLocalDescription(answer);
-      }).then(function() {
-        return pc1.setRemoteDescription(pc2.localDescription);
-      }).then(function() {
-        window.setTimeout(function() {
-          navigator.mediaDevices.getUserMedia({video: true})
-          .then(function(stream) {
-            console.log(adapter);
-            if (adapter.browserDetails.browser === 'chrome') {
-              pc1.getLocalStreams()[0].addTrack(stream.getTracks()[0]);
-            } else if (adapter.browserDetails.browser === 'firefox') {
-              // not yet -- https://bugzilla.mozilla.org/show_bug.cgi?id=1245983
-              //origStream.addTrack(stream.getTracks()[0]); // Firefox
-              //pc1.addTrack(stream.getTracks()[0], origStream); // Firefox
-              // adding a different stream as a workaround
-              pc1.addTrack(stream.getTracks()[0], stream);
-            }
-            pc1.createOffer().then(function(offer) {
-              var desc = offer;
-              //desc.sdp = desc.sdp.replace(stream.id, origStream.id);
-              return pc1.setLocalDescription(desc);
-            }).then(function() {
-              // present a single remote stream to the remote side. Could also be
-              // done before SLD but that seems a slightly bigger risk.
-              var desc = pc1.localDescription;
-              desc.sdp = desc.sdp.replace(stream.id, origStream.id);
-              return pc2.setRemoteDescription(desc);
-            }).then(function() {
-              return pc2.createAnswer();
-            }).then(function(answer) {
-              return pc2.setLocalDescription(answer);
-            }).then(function() {
-              return pc1.setRemoteDescription(pc2.localDescription);
-            }).then(function() {
-              callback();
-            });
-          });
-        }, 3000);
-      }).catch(function(err) {
-        callback(err);
+  var addCandidate = function(pc, event) {
+    if (event.candidate) {
+      var cand = new RTCIceCandidate(event.candidate);
+      pc.addIceCandidate(cand)
+      .catch(function(err) {
+        console.log(err);
       });
-    })
-    .catch(function(err) {
+    }
+  };
+  pc1.onicecandidate = function(event) {
+    addCandidate(pc2, event);
+  };
+  pc2.onicecandidate = function(event) {
+    addCandidate(pc1, event);
+  };
+
+  var constraints = {audio: true};
+  navigator.mediaDevices.getUserMedia(constraints)
+  .then(function(stream) {
+    var origStream = stream;
+    pc1.addStream(stream); // TODO: use addTrack?
+    pc1.createOffer().then(function(offer) {
+      return pc1.setLocalDescription(offer);
+    }).then(function() {
+      return pc2.setRemoteDescription(pc1.localDescription);
+    }).then(function() {
+      return pc2.createAnswer();
+    }).then(function(answer) {
+      return pc2.setLocalDescription(answer);
+    }).then(function() {
+      return pc1.setRemoteDescription(pc2.localDescription);
+    }).then(function() {
+      window.setTimeout(function() {
+        navigator.mediaDevices.getUserMedia({video: true})
+        .then(function(stream) {
+          if (webrtcDetectedBrowser === 'chrome') {
+            pc1.getLocalStreams()[0].addTrack(stream.getTracks()[0]);
+          } else if (webrtcDetectedBrowser === 'firefox') {
+            // not yet -- https://bugzilla.mozilla.org/show_bug.cgi?id=1245983
+            //origStream.addTrack(stream.getTracks()[0]); // Firefox
+            //pc1.addTrack(stream.getTracks()[0], origStream); // Firefox
+            // adding a different stream as a workaround
+            pc1.addTrack(stream.getTracks()[0], stream);
+          }
+          pc1.createOffer().then(function(offer) {
+            var desc = offer;
+            //desc.sdp = desc.sdp.replace(stream.id, origStream.id);
+            return pc1.setLocalDescription(desc);
+          }).then(function() {
+            // present a single remote stream to the remote side. Could also be
+            // done before SLD but that seems a slightly bigger risk.
+            var desc = pc1.localDescription;
+            desc.sdp = desc.sdp.replace(stream.id, origStream.id);
+            return pc2.setRemoteDescription(desc);
+          }).then(function() {
+            return pc2.createAnswer();
+          }).then(function(answer) {
+            return pc2.setLocalDescription(answer);
+          }).then(function() {
+            return pc1.setRemoteDescription(pc2.localDescription);
+          }).then(function() {
+            callback();
+          });
+        });
+      }, 3000);
+    }).catch(function(err) {
       callback(err);
     });
+  })
+  .catch(function(err) {
+    callback(err);
+  });
 }
 
 function getVideo() {
@@ -238,9 +221,9 @@ function interop(t, browserA, browserB) {
   var driverB = buildDriver(browserB);
 
 
-  driverA.get('file://' + process.cwd() + '/test/testpage.html')
+  driverA.get('https://fippo.github.io/adapter/testpage.html')
   .then(function() {
-    return driverB.get('file://' + process.cwd() + '/test/testpage.html')
+    return driverB.get('https://fippo.github.io/adapter/testpage.html')
   }).then(function() {
     return driverA.executeAsyncScript(function() {
       var callback = arguments[arguments.length - 1];
@@ -320,9 +303,9 @@ function interop(t, browserA, browserB) {
       navigator.mediaDevices.getUserMedia(constraints)
       .then(function(stream) {
         var origStream = stream;
-        if (adapter.browserDetails.browser === 'chrome') {
+        if (webrtcDetectedBrowser === 'chrome') {
           pc1.getLocalStreams()[0].addTrack(stream.getTracks()[0]);
-        } else if (adapter.browserDetails.browser === 'firefox') {
+        } else if (webrtcDetectedBrowser === 'firefox') {
           // not yet -- https://bugzilla.mozilla.org/show_bug.cgi?id=1245983
           //origStream.addTrack(stream.getTracks()[0]); // Firefox
           //pc1.addTrack(stream.getTracks()[0], origStream); // Firefox
@@ -403,14 +386,20 @@ function interop(t, browserA, browserB) {
 }
 
 test('basic', function (t) {
-    var driver = seleniumHelpers.buildDriver();
-    driver.manage().timeouts().setScriptTimeout(10000);
-    driver.get('file://' + process.cwd() + '/test/testpage.html')
+    var driver = buildDriver(process.env.BROWSER || 'chrome', process.env.BVER || '')
+    driver.get('https://fippo.github.io/adapter/testpage.html')
+    .then(function() {
+        return driver.executeScript('return navigator.userAgent;');
+    })
+    .then(function(ua) {
+        console.log(ua);
+    })
     .then(function() {
         return driver.executeAsyncScript(basicTest)
     })
     .then(function(err) {
         t.ok(err === null, 'renegotiation works');
+        console.log(err);
         return driver.sleep(3000);
     })
     .then(function() {
@@ -424,11 +413,22 @@ test('basic', function (t) {
         t.ok(width > 0, 'width > 0');
         t.ok(height > 0, 'height > 0');
         t.ok(luma > 0, 'accumulated luma is > 0');
+    })
+    .then(function() {
+      driver.close()
+      .then(function() {
+        return driver.quit();
+      })
+      .then(function() {
         t.end();
+      });
+    })
+    .catch(function(err) {
+      t.fail(err);
     });
 });
-*/
 
+/*
 test('interop chrome chrome', function (t) {
   interop(t, 'chrome', 'chrome');
 });
@@ -444,3 +444,4 @@ test('interop chrome firefox', function (t) {
 test('interop firefox chrome', function (t) {
   interop(t, 'firefox', 'firefox');
 });
+*/

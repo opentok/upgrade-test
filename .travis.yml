@@ -3,8 +3,22 @@ language: node_js
 node_js:
 - 4.1
 
+addons:
+  sauce_connect: true
+
+env:
+  matrix:
+    - BROWSER=chrome
+    - BROWSER=firefox
+    - BROWSER=firefox BVER=beta
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: BROWSER=firefox
+
 script:
-  - npm test && npm run test-travis
+  - npm test
 
 after_failure:
   - for file in *.log; do echo $file; echo "======================"; cat $file; done || true
