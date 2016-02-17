@@ -36,12 +36,12 @@ function buildDriver(browser) {
 
   var firefoxOptions = new firefox.Options()
       .setProfile(profile)
-      .setBinary('node_modules/.bin/start-firefox');
+      //.setBinary('node_modules/.bin/start-firefox');
 
   // Chrome options.
   // http://selenium.googlecode.com/git/docs/api/javascript/module_selenium-webdriver_chrome_class_Options.html#addArguments
   var chromeOptions = new chrome.Options()
-      .setChromeBinaryPath('node_modules/.bin/start-chrome')
+      //.setChromeBinaryPath('node_modules/.bin/start-chrome')
       .addArguments('allow-file-access-from-files')
       .addArguments('use-fake-device-for-media-stream')
       .addArguments('use-fake-ui-for-media-stream')
@@ -49,11 +49,23 @@ function buildDriver(browser) {
       .addArguments('no-process-singleton-dialog');
       //.addArguments('mute-audio') // harmful for this test
 
+  /*
   var driver= new webdriver.Builder()
       .forBrowser(browser)
       .setFirefoxOptions(firefoxOptions)
       .setChromeOptions(chromeOptions)
       .build();
+  */
+
+  var username = process.env.SAUCE_USERNAME;
+  var key = process.env.SAUCE_ACCESS_KEY;
+  var driver = new webdriver.Builder()
+    .usingServer('http://' + username + ':' + key + '@ondemand.saucelabs.com/wd/hub',
+    .withCapabilities({
+      browserName: browser,
+      firefoxOptions: firefoxOptions,
+      chromeOptions: chromeOptions
+    }).build();
 
   // Set global executeAsyncScript() timeout (default is 0) to allow async
   // callbacks to be caught in tests.
@@ -415,6 +427,7 @@ test('basic', function (t) {
         t.end();
     });
 });
+*/
 
 test('interop chrome chrome', function (t) {
   interop(t, 'chrome', 'chrome');
