@@ -32,8 +32,8 @@ function buildDriver(browser, version, platform) {
     var username = process.env.SAUCE_USERNAME;
     var key = process.env.SAUCE_ACCESS_KEY;
     var driver = new webdriver.Builder()
-      //.usingServer('http://' + username + ':' + key + '@localhost:4445/wd/hub')
-      .usingServer('http://' + username + ':' + key + '@ondemand.saucelabs.com/wd/hub')
+      .usingServer('http://' + username + ':' + key + '@localhost:4445/wd/hub')
+      //.usingServer('http://' + username + ':' + key + '@ondemand.saucelabs.com/wd/hub')
       //.usingServer('http://localhost:4444/wd/hub')
       .withCapabilities({
         'tunnel-identifier': process.env.TRAVIS_JOB_NUMBER
@@ -360,7 +360,6 @@ function interop(t, browserA, browserB) {
     return driverB.executeAsyncScript(getVideo)
   })
   .then(function(data) {
-    console.log(data);
     var width = data[0];
     var height = data[1];
     var luma = data[2];
@@ -399,14 +398,12 @@ test('basic', function (t) {
     })
     .then(function(err) {
         t.ok(err === null, 'renegotiation works');
-        console.log(err);
         return driver.sleep(3000);
     })
     .then(function() {
         return driver.executeAsyncScript(getVideo)
     })
     .then(function(data) {
-        console.log(data);
         var width = data[0];
         var height = data[1];
         var luma = data[2];
@@ -428,7 +425,6 @@ test('basic', function (t) {
     });
 });
 
-/*
 test('interop chrome chrome', function (t) {
   interop(t, 'chrome', 'chrome');
 });
@@ -444,4 +440,3 @@ test('interop chrome firefox', function (t) {
 test('interop firefox chrome', function (t) {
   interop(t, 'firefox', 'firefox');
 });
-*/
