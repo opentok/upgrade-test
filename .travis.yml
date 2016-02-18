@@ -9,8 +9,11 @@ addons:
 env:
   matrix:
     - BROWSER=chrome
+    - BROWSER=chrome BVER=beta
+    - BROWSER=chrome BVER=dev
     - BROWSER=firefox
     - BROWSER=firefox BVER=beta
+    - BROWSER=firefox BVER=dev
 
 matrix:
   fast_finish: true
