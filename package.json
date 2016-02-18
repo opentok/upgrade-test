@@ -3,15 +3,13 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
-    "test": "test/run-tests"
+    "test": "node test/test.js"
   },
   "author": "Philipp Hancke <philipp@tokbox.com>",
-  "dependencies": {},
   "devDependencies": {
     "chromedriver": "^2.16.0",
     "selenium-webdriver": "^2.48.0",
-    "travis-multirunner": "^3.0.0",
-    "webrtc-adapter-test": "^0.2.10",
-    "webrtc-utilities": "0.0.8"
+    "tape": "^4.4.0",
+    "webrtc-utilities": "0.0.9"
   }
 }
