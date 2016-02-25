@@ -24,7 +24,7 @@ function buildDriver(browser, version, platform) {
       .addArguments('use-fake-ui-for-media-stream')
       .addArguments('disable-translate')
       .addArguments('no-process-singleton-dialog')
-      .addArguments('mute-audio'); // might be harmful for this test
+      //.addArguments('mute-audio'); // might be harmful for this test
 
   var driver;
   if (process.env.SAUCE_USERNAME) {
@@ -240,9 +240,10 @@ function interop(t, browserA, browserB) {
       };
 
       var constraints = {audio: true};
+      var origStream;
       navigator.mediaDevices.getUserMedia(constraints)
       .then(function(stream) {
-        var origStream = stream;
+        origStream = stream;
         pc1.addStream(stream); // TODO: use addTrack?
         pc1.createOffer().then(function(offer) {
           return pc1.setLocalDescription(offer);
@@ -367,6 +368,68 @@ function interop(t, browserA, browserB) {
     t.ok(height > 0, 'height > 0');
     t.ok(luma > 0, 'accumulated luma is > 0');
   })
+  // downgrade
+  .then(function() {
+    return driverA.sleep(3000);
+  })
+  .then(function() {
+    return driverA.executeAsyncScript(function() {
+      var callback = arguments[arguments.length - 1];
+
+      if (webrtcDetectedBrowser === 'chrome') {
+        var track = pc1.getLocalStreams()[0].getVideoTracks()[0];
+        pc1.getLocalStreams()[0].removeTrack(track);
+        track.stop();
+      } else if (webrtcDetectedBrowser === 'firefox') {
+        // not yet -- https://bugzilla.mozilla.org/show_bug.cgi?id=1245983
+        //origStream.addTrack(stream.getTracks()[0]); // Firefox
+        //pc1.addTrack(stream.getTracks()[0], origStream); // Firefox
+        // adding a different stream as a workaround
+        //pc1.removeTrack(track);
+      }
+      /*
+      pc1.createOffer().then(function(offer) {
+        return pc1.setLocalDescription(offer);
+      })
+      .then(function() {
+        callback(pc1.localDescription.sdp);
+      });
+      */
+    });
+  })
+  .then(function(offer) {
+    t.pass('downgrade offer');
+    offer = mangle(offer);
+    return driverB.executeAsyncScript(function(offer) {
+      var callback = arguments[arguments.length - 1];
+      
+      pc1.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: offer }))
+      .then(function() {
+        return pc1.createAnswer();
+      })
+      .then(function(answer) {
+        return pc1.setLocalDescription(answer);
+      })
+      .then(function() {
+        callback(pc1.localDescription.sdp);
+      });
+    }, offer);
+  })
+  .then(function(answer) {
+    t.pass('downgrade answer');
+    answer = mangle(answer);
+    return driverA.executeAsyncScript(function(answer) {
+      var callback = arguments[arguments.length - 1];
+      
+      pc1.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: answer}))
+      .then(function() {
+        callback();
+      });
+    }, answer);
+  })
+  .then(function() {
+    return driverA.sleep(1000000);
+  })
   .then(function() {
     return driverA.close()
     .then(function() {
@@ -430,11 +493,12 @@ test('basic', function (t) {
 test('interop chrome chrome', function (t) {
   interop(t, 'chrome', 'chrome');
 });
-
+*/
 test('interop firefox firefox', function (t) {
   interop(t, 'firefox', 'firefox');
 });
 
+/*
 test('interop chrome firefox', function (t) {
   interop(t, 'chrome', 'firefox');
 });
