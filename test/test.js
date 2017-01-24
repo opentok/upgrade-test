@@ -46,8 +46,11 @@ function buildDriver(browser, version, platform) {
     driver= new webdriver.Builder()
         .forBrowser(browser, version, platform)
         .setFirefoxOptions(firefoxOptions)
-        .setChromeOptions(chromeOptions)
-        .build();
+        .setChromeOptions(chromeOptions);
+    if (browser === 'firefox') {
+      driver.getCapabilities().set('marionette', true);
+    }
+    driver = driver.build();
   }
 
   // Set global executeAsyncScript() timeout (default is 0) to allow async
@@ -61,7 +64,10 @@ function buildDriver(browser, version, platform) {
 function basicTest() {
   var callback = arguments[arguments.length - 1];
   
-  var remoteVideo = document.getElementById('remoteVideo');
+  var remoteVideo = document.createElement('video');
+  remoteVideo.id = 'remoteVideo';
+  remoteVideo.autoplay = true;
+  document.body.appendChild(remoteVideo);
 
   var pc1 = new RTCPeerConnection(null);
   var pc2 = new RTCPeerConnection(null);
@@ -105,9 +111,9 @@ function basicTest() {
       window.setTimeout(function() {
         navigator.mediaDevices.getUserMedia({video: true})
         .then(function(stream) {
-          if (webrtcDetectedBrowser === 'chrome') {
+          if (adapter.browserDetails.browser === 'chrome') {
             pc1.getLocalStreams()[0].addTrack(stream.getTracks()[0]);
-          } else if (webrtcDetectedBrowser === 'firefox') {
+          } else if (adapter.browserDetails.browser === 'firefox') {
             // not yet -- https://bugzilla.mozilla.org/show_bug.cgi?id=1245983
             //origStream.addTrack(stream.getTracks()[0]); // Firefox
             //pc1.addTrack(stream.getTracks()[0], origStream); // Firefox
@@ -228,7 +234,10 @@ function interop(t, browserA, browserB) {
     return driverA.executeAsyncScript(function() {
       var callback = arguments[arguments.length - 1];
       
-      var remoteVideo = document.getElementById('remoteVideo');
+      var remoteVideo = document.createElement('video');
+      remoteVideo.autoplay = true;
+      remoteVideo.id = 'remoteVideo';
+      document.body.appendChild(remoteVideo);
 
       window.pc1 = new RTCPeerConnection(null);
 
@@ -255,7 +264,10 @@ function interop(t, browserA, browserB) {
       return driverB.executeAsyncScript(function(offer) {
         var callback = arguments[arguments.length - 1];
         
-        var remoteVideo = document.getElementById('remoteVideo');
+        var remoteVideo = document.createElement('video');
+        remoteVideo.id = 'remoteVideo';
+        remoteVideo.autoplay = true;
+        document.body.appendChild(remoteVideo);
 
         window.pc1 = new RTCPeerConnection(null);
 
@@ -303,9 +315,9 @@ function interop(t, browserA, browserB) {
       navigator.mediaDevices.getUserMedia(constraints)
       .then(function(stream) {
         var origStream = stream;
-        if (webrtcDetectedBrowser === 'chrome') {
+        if (adapter.browserDetails.browser === 'chrome') {
           pc1.getLocalStreams()[0].addTrack(stream.getTracks()[0]);
-        } else if (webrtcDetectedBrowser === 'firefox') {
+        } else if (adapter.browserDetails.browser === 'firefox') {
           // not yet -- https://bugzilla.mozilla.org/show_bug.cgi?id=1245983
           //origStream.addTrack(stream.getTracks()[0]); // Firefox
           //pc1.addTrack(stream.getTracks()[0], origStream); // Firefox

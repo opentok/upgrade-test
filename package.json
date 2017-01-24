@@ -7,8 +7,9 @@
   },
   "author": "Philipp Hancke <philipp@tokbox.com>",
   "devDependencies": {
-    "chromedriver": "^2.16.0",
-    "selenium-webdriver": "^2.48.0",
+    "selenium-webdriver": "^3.0.0",
+    "chromedriver": "^2.26.1",
+    "geckodriver": "^1.2.0",
     "tape": "^4.4.0",
     "webrtc-utilities": "0.0.9"
   }
